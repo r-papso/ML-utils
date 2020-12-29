@@ -122,9 +122,8 @@ def cifar_model(input_shape, model_type='reference', normalize=None, minmax_a=0,
   x = layers.Conv2D(128, 3, padding='same', activation='elu')(x)
   x = layers.BatchNormalization()(x)
 
+  x = layers.MaxPool2D()(x)
   x = layers.Flatten()(x)
-  x = layers.Dense(64, activation='elu')(x)
-  x = layers.Dropout(0.5)(x)
   x = layers.Dense(10)(x)
 
   if model_type == 'reference':
