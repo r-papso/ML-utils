@@ -305,12 +305,12 @@ def compute_accuracy_DBSCAN(y_pred, y_true, centroids, ord=None):
 
     y_pred_clusters = assign_samples_to_clusters(y_pred=y_pred, centroids=centroids, ord=ord)
     y_pred_ids = np.unique(y_pred_clusters)
-    accuracies = np.zeros(y_pred_ids.shape[0])
-
+    correct = 0
+    
     for i in range(y_pred_ids.shape[0]):
-        accuracies[i] = np.max(np.bincount(y_true[np.argwhere(y_pred_clusters == y_pred_ids[i])[:,0]])) / np.argwhere(y_pred_clusters == y_pred_ids[i]).shape[0]
+        correct += np.max(np.bincount(y_true[np.argwhere(y_pred_clusters == y_pred_ids[i])[:,0]]))
 
-    return np.average(accuracies)
+    return correct / y_pred.shape[0]
 
 def assign_samples_to_clusters_cos_similarity(y_pred, centroids):
     dot = np.matmul(y_pred, centroids.T)
