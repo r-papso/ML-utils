@@ -46,7 +46,7 @@ class CustomCallback(keras.callbacks.Callback):
       print("Epoch {} k_nearest set to: {}".format(epoch, k_nearest))
     
 
-def fashion_mnist_model(input_shape, model_type='reference', normalize=None, minmax_a=0, minmax_b=1):
+def fashion_mnist_model(input_shape, model_type='reference', normalize=None, minmax_a=0, minmax_b=1, sphere_r=1.0):
   if model_type not in ['reference', 'triplet']:
     raise ValueError('Invalid input type: {}'.format(model_type))
 
@@ -78,7 +78,7 @@ def fashion_mnist_model(input_shape, model_type='reference', normalize=None, min
   if model_type == 'reference':
     x = layers.Softmax()(x)
   elif model_type == 'triplet' and normalize == 'l2':
-    x = layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1))(x)
+    x = layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1) * sphere_r)(x)
   elif model_type == 'triplet' and normalize == 'minmax':
     x = layers.Lambda(lambda x: minmax_normalize(x, minmax_a, minmax_b))(x)
 
@@ -312,6 +312,36 @@ def delta_triplet(alpha, beta, margin_type=0, greater_negatives=True):
                                                             4: lambda: extended_hinge_margin(x_p, x_n, alpha, beta)})
     
     final_loss = tf.truediv(tf.reduce_sum(total_loss), tf.cast(tf.shape(labels)[0], tf.float32))
+
+    return final_loss
+
+  return loss
+
+
+def magnetic_loss(r):
+
+  def loss(y_true, y_pred):
+    labels, embeddings = y_true, y_pred
+    lshape = tf.shape(labels)
+    labels = tf.reshape(labels, [lshape[0], 1])
+
+    # Compute distance matrix
+    r = tf.reshape(tf.reduce_sum(embeddings * embeddings, 1), [-1, 1])
+    D = r - 2 * tf.matmul(embeddings, embeddings, transpose_b=True) + tf.transpose(r)
+
+    # Get adjacency and indentity matrix
+    adjacency = tf.equal(labels, tf.transpose(labels))
+    identity = tf.linalg.diag(tf.fill([tf.shape(labels)[0]], True))
+
+    # Compute loss
+    log = tf.where(tf.logical_not(identity), -tf.math.log((D + r * 0.01) * (1.0 / r)), 0.0)
+    softplus = tf.math.softplus(-D)
+
+    p_loss = tf.where(adjacency, tf.maximum(log, -softplus + tf.math.log(2.0)), 0.0)
+    n_loss = tf.where(tf.logical_not(adjacency), tf.maximum(log, softplus), 0.0)
+
+    loss = tf.reduce_sum(tf.add(p_loss, n_loss), axis=1)
+    final_loss = tf.truediv(tf.reduce_sum(loss), tf.cast(lshape[0], tf.float32))
 
     return final_loss
 
