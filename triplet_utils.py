@@ -137,7 +137,7 @@ def cifar_model(input_shape, model_type='reference', normalize=None, minmax_a=0,
   return model
 
   
-def k_nearest_triplet(k, alpha=0.5, beta=1.5, margin_type=0, greater_negatives=True):
+def k_nearest_triplet(k, alpha, beta, margin_type=0, greater_negatives=True):
 
   def loss(y_true, y_pred):
     labels, embeddings = y_true, y_pred
@@ -183,7 +183,8 @@ def k_nearest_triplet(k, alpha=0.5, beta=1.5, margin_type=0, greater_negatives=T
     total_loss = tf.switch_case(tf_margin_type, branch_fns={0: lambda: hinge_margin(x_p, x_n, tf_alpha), 
                                                             1: lambda: softplus_margin(x_p, x_n), 
                                                             2: lambda: scale_margin(x_p, x_n, tf_beta),
-                                                            3: lambda: hybrid_margin(x_p, x_n, tf_alpha, tf_beta)})
+                                                            3: lambda: hybrid_margin(x_p, x_n, tf_alpha, tf_beta),
+                                                            4: lambda: extended_hinge_margin(x_p, x_n, alpha, beta)})
 
     final_loss = tf.truediv(tf.reduce_sum(total_loss), tf.cast(tf.shape(labels)[0], tf.float32))
 
@@ -192,7 +193,7 @@ def k_nearest_triplet(k, alpha=0.5, beta=1.5, margin_type=0, greater_negatives=T
   return loss
 
 
-def surrounding_triplet(eps, alpha=0.5, beta=1.5, margin_type=0, greater_negatives=True):
+def surrounding_triplet(eps, alpha, beta, margin_type=0, greater_negatives=True):
 
   def loss(y_true, y_pred):
     labels, embeddings = y_true, y_pred
@@ -241,7 +242,8 @@ def surrounding_triplet(eps, alpha=0.5, beta=1.5, margin_type=0, greater_negativ
     total_loss = tf.switch_case(tf_margin_type, branch_fns={0: lambda: hinge_margin(x_p, x_n, tf_alpha), 
                                                             1: lambda: softplus_margin(x_p, x_n), 
                                                             2: lambda: scale_margin(x_p, x_n, tf_beta),
-                                                            3: lambda: hybrid_margin(x_p, x_n, tf_alpha, tf_beta)})
+                                                            3: lambda: hybrid_margin(x_p, x_n, tf_alpha, tf_beta),
+                                                            4: lambda: extended_hinge_margin(x_p, x_n, alpha, beta)})
     
     final_loss = tf.truediv(tf.reduce_sum(total_loss), tf.cast(tf.shape(labels)[0], tf.float32))
 
@@ -250,7 +252,7 @@ def surrounding_triplet(eps, alpha=0.5, beta=1.5, margin_type=0, greater_negativ
   return loss
 
 
-def delta_triplet(alpha=0.5, beta=1.5, margin_type=0, greater_negatives=True):
+def delta_triplet(alpha, beta, margin_type=0, greater_negatives=True):
 
   def loss(y_true, y_pred):
     labels, embeddings = y_true, y_pred
@@ -306,7 +308,8 @@ def delta_triplet(alpha=0.5, beta=1.5, margin_type=0, greater_negatives=True):
     total_loss = tf.switch_case(tf_margin_type, branch_fns={0: lambda: hinge_margin(x_p, x_n, tf_alpha), 
                                                             1: lambda: softplus_margin(x_p, x_n), 
                                                             2: lambda: scale_margin(x_p, x_n, tf_beta),
-                                                            3: lambda: hybrid_margin(x_p, x_n, tf_alpha, tf_beta)})
+                                                            3: lambda: hybrid_margin(x_p, x_n, tf_alpha, tf_beta),
+                                                            4: lambda: extended_hinge_margin(x_p, x_n, alpha, beta)})
     
     final_loss = tf.truediv(tf.reduce_sum(total_loss), tf.cast(tf.shape(labels)[0], tf.float32))
 
@@ -329,6 +332,10 @@ def scale_margin(x_p, x_n, beta):
 
 def hybrid_margin(x_p, x_n, alpha, beta):
   return tf.maximum(hinge_margin(x_p, x_n, alpha), scale_margin(x_p, x_n, beta))
+
+
+def extended_hinge_margin(x_p, x_n, alpha, beta):
+  return tf.maximum(tf.add(x_p - x_n, alpha), tf.multiply(tf.add(x_p - x_n, 4.0), beta))
 
 
 def minmax_normalize(x, a, b):
